@@ -1,12 +1,14 @@
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:gallery_saver/gallery_saver.dart';
-import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart';
 import 'package:provider/provider.dart';
 import 'repository/registrar_repository.dart';
 import 'package:path_provider/path_provider.dart' as path_provider;
+import 'services/crop_image.dart';
 
 class RegistrarPageContatos extends StatefulWidget {
   const RegistrarPageContatos({super.key, Key? chave});
@@ -17,33 +19,13 @@ class RegistrarPageContatos extends StatefulWidget {
 
 class _RegistrarPageContatosState extends State<RegistrarPageContatos> {
   XFile? photo;
-  cropImage(XFile file) async {
-    CroppedFile? croppedFile = await ImageCropper().cropImage(
-      sourcePath: file.path,
-      aspectRatioPresets: [
-        CropAspectRatioPreset.square,
-        CropAspectRatioPreset.ratio3x2,
-        CropAspectRatioPreset.original,
-        CropAspectRatioPreset.ratio4x3,
-        CropAspectRatioPreset.ratio16x9
-      ],
-      uiSettings: [
-        AndroidUiSettings(toolbarTitle: 'Cropper', toolbarColor: const Color.fromARGB(255, 31, 29, 29), toolbarWidgetColor: Colors.white, initAspectRatio: CropAspectRatioPreset.original, lockAspectRatio: false),
-        IOSUiSettings(
-          title: 'Cropper',
-        ),
-      ],
-    );
-    if (croppedFile != null) {
-      await GallerySaver.saveImage(croppedFile.path);
-    }
-  }
+  Uint8List? imageBytes;
 
   @override
   Widget build(BuildContext context) {
     final TextEditingController nomeController = TextEditingController();
-    final TextEditingController redeController = TextEditingController();
-    final TextEditingController macController = TextEditingController();
+    final TextEditingController sobrenomeController = TextEditingController();
+    final TextEditingController telefoneController = TextEditingController();
 
     var contatoData = Provider.of<ContatoData>(context, listen: false);
 
@@ -56,6 +38,7 @@ class _RegistrarPageContatosState extends State<RegistrarPageContatos> {
             children: <Widget>[
               const SizedBox(height: 40.0),
               IconButton(
+                iconSize: 100,
                 onPressed: () async {
                   showModalBottomSheet(
                       context: context,
@@ -74,6 +57,9 @@ class _RegistrarPageContatosState extends State<RegistrarPageContatos> {
                                   await GallerySaver.saveImage(photo!.path);
                                   Navigator.pop(context);
                                   cropImage(photo!);
+                                  setState(() {
+                                    imageBytes = File(photo!.path).readAsBytesSync();
+                                  });
                                 }
                               }),
                           ListTile(
@@ -84,18 +70,27 @@ class _RegistrarPageContatosState extends State<RegistrarPageContatos> {
                               photo = await picker.pickImage(source: ImageSource.gallery);
                               Navigator.pop(context);
                               cropImage(photo!);
+
+                              setState(() {
+                                imageBytes = File(photo!.path).readAsBytesSync();
+                              });
                             },
                           )
                         ]);
                       });
                 },
-                icon: const Icon(
-                  Icons.person,
-                  size: 80,
-                  color: Colors.blue,
-                ),
+                icon: imageBytes != null
+                    ? CircleAvatar(
+                        radius: 45,
+                        backgroundImage: MemoryImage(imageBytes!, scale: 22.0),
+                      )
+                    : const Icon(
+                        Icons.person,
+                        size: 100,
+                        color: Colors.greenAccent,
+                      ),
               ),
-              const SizedBox(height: 70.0),
+              const SizedBox(height: 30.0),
               TextField(
                 controller: nomeController,
                 decoration: const InputDecoration(labelText: 'Nome', labelStyle: TextStyle(color: Colors.greenAccent), border: OutlineInputBorder(), filled: true, fillColor: Colors.black87),
@@ -103,24 +98,24 @@ class _RegistrarPageContatosState extends State<RegistrarPageContatos> {
               ),
               const SizedBox(height: 5.0),
               TextField(
-                controller: redeController,
-                decoration: const InputDecoration(labelText: 'Rede', labelStyle: TextStyle(color: Colors.greenAccent), border: OutlineInputBorder(), filled: true, fillColor: Colors.black87),
+                controller: sobrenomeController,
+                decoration: const InputDecoration(labelText: 'Sobrenome', labelStyle: TextStyle(color: Colors.greenAccent), border: OutlineInputBorder(), filled: true, fillColor: Colors.black87),
                 style: const TextStyle(color: Colors.white),
               ),
               const SizedBox(height: 5.0),
               TextField(
-                controller: macController,
-                decoration: const InputDecoration(labelText: 'Endereço MAC', labelStyle: TextStyle(color: Colors.greenAccent), border: OutlineInputBorder(), filled: true, fillColor: Colors.black87),
+                controller: telefoneController,
+                decoration: const InputDecoration(labelText: 'Telefone', labelStyle: TextStyle(color: Colors.greenAccent), border: OutlineInputBorder(), filled: true, fillColor: Colors.black87),
                 style: const TextStyle(color: Colors.white),
               ),
               const SizedBox(height: 30.0),
               ElevatedButton(
                 onPressed: () {
                   String nome = nomeController.text;
-                  String rede = redeController.text;
-                  String mac = macController.text;
+                  String sobrenome = sobrenomeController.text;
+                  String telefone = telefoneController.text;
 
-                  if (nome.isEmpty || rede.isEmpty || mac.isEmpty) {
+                  if (nome.isEmpty || sobrenome.isEmpty || telefone.isEmpty) {
                     showDialog(
                       context: context,
                       builder: (context) {
@@ -139,17 +134,19 @@ class _RegistrarPageContatosState extends State<RegistrarPageContatos> {
                       },
                     );
                   } else {
-                    Contatos lan = Contatos(
+                    Contatos contato = Contatos(
                       nome: nome,
-                      rede: rede,
-                      mac: mac,
+                      sobrenome: sobrenome,
+                      telefone: telefone,
+                      imagem: imageBytes,
                     );
 
-                    contatoData.adicionarContato(lan);
+                    contatoData.adicionarContato(contato);
 
                     nomeController.clear();
-                    redeController.clear();
-                    macController.clear();
+                    sobrenomeController.clear();
+                    telefoneController.clear();
+                    Navigator.of(context).pop();
                   }
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.black),

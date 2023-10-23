@@ -1,39 +1,44 @@
 import 'dart:convert';
-
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class Contatos {
   final String nome;
-  final String rede;
-  final String mac;
+  final String sobrenome;
+  final String telefone;
+  final Uint8List? imagem;
 
-  Contatos({
-    required this.nome,
-    required this.rede,
-    required this.mac,
-  });
+  Contatos({required this.nome, required this.sobrenome, required this.telefone, this.imagem});
 
   Map<String, dynamic> toJson() {
     return {
       'nome': nome,
-      'rede': rede,
-      'MAC': mac,
+      'sobrenome': sobrenome,
+      'telefone': telefone,
+      'imagem': imagem != null ? imagem!.toList() : null,
     };
   }
 
   factory Contatos.fromJson(Map<String, dynamic> json) {
     return Contatos(
       nome: json['nome'],
-      rede: json['rede'],
-      mac: json['MAC'],
+      sobrenome: json['sobrenome'],
+      telefone: json['telefone'],
+      imagem: json['imagem'] != null ? Uint8List.fromList(json['imagem']) : null,
     );
   }
 }
 
 Future<void> salvarContatos(List<Contatos> lan) async {
   final prefs = await SharedPreferences.getInstance();
-  final lanJson = lan.map((lan) => jsonEncode(lan.toJson())).toList();
+  final lanJson = lan.map((lan) {
+    Map<String, dynamic> json = lan.toJson();
+    if (lan.imagem != null) {
+      json['imagem'] = lan.imagem!.toList();
+    }
+    return jsonEncode(json);
+  }).toList();
   await prefs.setStringList('contato', lanJson);
 }
 
@@ -43,7 +48,15 @@ Future<List<Contatos>> carregarContatos() async {
   if (contatoJson == null) {
     return [];
   }
-  return contatoJson.map((contatosJson) => Contatos.fromJson(jsonDecode(contatosJson))).toList();
+  return contatoJson.map((contatosJson) {
+    final decoded = jsonDecode(contatosJson);
+    return Contatos(
+      nome: decoded['nome'],
+      sobrenome: decoded['sobrenome'],
+      telefone: decoded['telefone'],
+      imagem: decoded['imagem'] != null ? Uint8List.fromList(decoded['imagem'].cast<int>()) : null,
+    );
+  }).toList();
 }
 
 class ContatoData extends ChangeNotifier {

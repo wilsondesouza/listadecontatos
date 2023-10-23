@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:listadecontatos/pages/home_page.dart';
+import 'package:listadecontatos/pages/consulta_page_contatos.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
@@ -11,7 +11,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(),
       title: "Contatos",
       color: const Color.fromARGB(255, 31, 29, 29),
-      home: const HomePage(),
+      home: const ConsultaPageContatos(),
       initialRoute: '/',
     );
   }
